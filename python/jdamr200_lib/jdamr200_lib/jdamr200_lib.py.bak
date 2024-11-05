@@ -1,0 +1,282 @@
+'''
+/*MIT License
+
+Copyright (c) 2024 JD edu. http://jdedu.kr author: conner.jeong@gmail.com
+     
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+     
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+     
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN TH
+SOFTWARE.*/
+'''
+
+import serial
+import threading 
+import struct
+import time 
+
+class Jdamr200(object):
+    def __init__(self, com="/dev/ttyACM0"):
+        self.ser = serial.Serial(com, 115200)
+        self.HEAD = 0xf5
+
+        self.CMD_SELF_DIAG = 0x01
+        self.CMD_GET_SPEED = 0x02 
+        self.CMD_GET_IMU_RAW = 0x03
+        self.CMD_GET_IMU_RPY = 0x04
+        self.CMD_GET_ENCODER = 0x05
+        self.CMD_SET_MOTOR = 0x06
+        self.CMD_MOVE_CAR = 0x07
+        self.CMD_SET_MOTOR_PID = 0x08
+        self.CMD_GET_BAT = 0x09
+
+        self.ax = 0
+        self.ay = 0
+        self.az = 0
+        self.gx = 0
+        self.gy = 0
+        self.gz = 0
+        self.mx = 0
+        self.my = 0
+        self.mz = 0
+        self.vx = 0
+        self.vy = 0
+        self.vz = 0
+
+        self.pitch = 0
+        self.roll = 0
+        self.yaw = 0
+
+        self.encoder1 = 0
+        self.encoder2 = 0
+        self.encoder3 = 0
+        self.encoder4 = 0
+
+        self.motor_kp = 0
+        self.motor_ki = 9
+        self.motor_kd = 0
+
+        self.battery = 0
+        
+
+        if self.ser.isOpen():
+            print("JDamr serial port opened!")
+        else:
+            print("Can't open JDamr serial port!")
+        time.sleep(1)
+
+    def parse_diagnostic(self, command, diag_data ): 
+        if command == self.CMD_GET_SPEED:
+            self.vx = int(struct.unpack('h', bytearray(diag_data[0:2]))[0]) / 1000.0
+            self.vy = int(struct.unpack('h', bytearray(diag_data[2:4]))[0]) / 1000.0
+            self.vz = int(struct.unpack('h', bytearray(diag_data[4:6]))[0]) / 1000.0
+
+        elif command == self.CMD_GET_IMU_RAW:
+            self.ax = struct.unpack('h', bytearray(diag_data[0:2]))[0]
+            self.ay = struct.unpack('h', bytearray(diag_data[2:4]))[0]
+            self.az = struct.unpack('h', bytearray(diag_data[4:6]))[0]
+            self.gx = struct.unpack('h', bytearray(diag_data[6:8]))[0]
+            self.gy = struct.unpack('h', bytearray(diag_data[8:10]))[0]
+            self.gz = struct.unpack('h', bytearray(diag_data[10:12]))[0]
+            self.mx = struct.unpack('h', bytearray(diag_data[12:14]))[0]
+            self.my = struct.unpack('h', bytearray(diag_data[14:16]))[0]
+            self.mz = struct.unpack('h', bytearray(diag_data[16:18]))[0]
+
+        elif command == self.CMD_GET_IMU_RPY:
+            self.pitch = struct.unpack('h', bytearray(diag_data[0:2]))[0] / 10000.0
+            self.roll = struct.unpack('h', bytearray(diag_data[2:4]))[0] / 10000.0
+            self.yaw = struct.unpack('h', bytearray(diag_data[4:6]))[0] / 10000.0
+        
+        elif command == self.CMD_GET_ENCODER:
+            self.encoder1 = struct.unpack('i', bytearray(diag_data[0:4]))[0]
+            self.encoder2 = struct.unpack('i', bytearray(diag_data[4:8]))[0]
+            self.encoder3 = struct.unpack('i', bytearray(diag_data[8:12]))[0]
+            self.encoder4 = struct.unpack('i', bytearray(diag_data[12:16]))[0]
+
+        #elif command == self.CMD_GET_BAT
+            
+    def receive_data(self):     
+        self.ser.flushInput()
+        while True:
+            head = bytearray(self.ser.read())[0]
+            if head == self.HEAD:
+                length = bytearray(self.ser.read())[0]  
+                payload = [] 
+                for i in range(length-1):
+                    value = bytearray(self.ser.read())[0]
+                    payload.append(value)
+                self.parse_cmd(payload)
+
+    def receive_thread(self):
+        try:
+            task_name = "serial_thread"
+            rx_task = threading.Thread(target=self.receive_data, name=task_name)
+            rx_task.setDaemon(True)
+            rx_task.start()
+            print("Start serial receive thread ")
+            time.sleep(.05)
+        except:
+            pass
+
+    def set_motor(self, speed_1, speed_2, speed_3, speed_4):
+        try:
+            speed_a = bytearray(struct.pack('b', speed_1))
+            speed_b = bytearray(struct.pack('b', speed_2))
+            speed_c = bytearray(struct.pack('b', speed_3))
+            speed_d = bytearray(struct.pack('b', speed_4))
+            cmd = [self.HEAD, 0x00, self.CMD_SET_MOTOR,
+                    speed_a[0], speed_b[0], speed_c[0], speed_d[0]]
+            cmd[1] = len(cmd) - 1
+            checksum = 0xff #sum(cmd) & 0xff
+            cmd.append(checksum)
+            self.ser.write(cmd)
+            print("motor:", cmd)
+            time.sleep(0.1)
+        except:
+            print("set_motor error")
+            pass
+  
+    def set_auto_report_state(self, enable, forever=False):
+        try:
+            state1 = 0
+            state2 = 0
+            if enable:
+                state1 = 1
+            if forever:
+                state2 = 0x5F
+            cmd = [self.__HEAD, self.__DEVICE_ID, 0x05, self.FUNC_AUTO_REPORT, state1, state2]
+            checksum = sum(cmd, self.__COMPLEMENT) & 0xff
+            cmd.append(checksum)
+            self.ser.write(cmd)
+            if self.__debug:
+                print("report:", cmd)
+            time.sleep(self.__delay_time)
+        except:
+            print('---set_auto_report_state error!---')
+            pass
+
+    def set_car_run(self, state, speed, adjust=False):
+        try:
+            car_type = self.__CAR_TYPE
+            if adjust:
+                car_type = car_type | self.__CAR_ADJUST
+            t_speed = bytearray(struct.pack('h', int(speed)))
+            cmd = [self.__HEAD, self.__DEVICE_ID, 0x00, self.FUNC_CAR_RUN, \
+                car_type, int(state&0xff), t_speed[0], t_speed[1]]
+            cmd[2] = len(cmd) - 1
+            checksum = sum(cmd, self.__COMPLEMENT) & 0xff
+            cmd.append(checksum)
+            self.ser.write(cmd)
+            if self.__debug:
+                print("car_run:", cmd)
+            time.sleep(self.__delay_time)
+        except:
+            print('---set_car_run error!---')
+            pass
+
+    def set_car_motion(self, v_x, v_y, v_z):
+        try:
+            vx_parms = bytearray(struct.pack('h', int(v_x*1000)))
+            vy_parms = bytearray(struct.pack('h', int(v_y*1000)))
+            vz_parms = bytearray(struct.pack('h', int(v_z*1000)))
+            cmd = [self.__HEAD, self.__DEVICE_ID, 0x00, self.FUNC_MOTION, self.__CAR_TYPE, \
+                vx_parms[0], vx_parms[1], vy_parms[0], vy_parms[1], vz_parms[0], vz_parms[1]]
+            cmd[2] = len(cmd) - 1
+            checksum = sum(cmd, self.__COMPLEMENT) & 0xff
+            cmd.append(checksum)
+            self.ser.write(cmd)
+            if self.__debug:
+                print("motion:", cmd)
+            time.sleep(self.__delay_time)
+        except:
+            print('---set_car_motion error!---')
+            pass
+
+    def set_pid_param(self, kp, ki, kd, forever=False):
+        try:
+            state = 0
+            if forever:
+                state = 0x5F
+            cmd = [self.__HEAD, self.__DEVICE_ID, 0x0A, self.FUNC_SET_MOTOR_PID]
+            if kp > 10 or ki > 10 or kd > 10 or kp < 0 or ki < 0 or kd < 0:
+                print("PID value must be:[0, 10.00]")
+                return
+            kp_params = bytearray(struct.pack('h', int(kp * 1000)))
+            ki_params = bytearray(struct.pack('h', int(ki * 1000)))
+            kd_params = bytearray(struct.pack('h', int(kd * 1000)))
+            cmd.append(kp_params[0])  # low
+            cmd.append(kp_params[1])  # high
+            cmd.append(ki_params[0])  # low
+            cmd.append(ki_params[1])  # high
+            cmd.append(kd_params[0])  # low
+            cmd.append(kd_params[1])  # high
+            cmd.append(state)
+            checksum = sum(cmd, self.__COMPLEMENT) & 0xff
+            cmd.append(checksum)
+            self.ser.write(cmd)
+            if self.__debug:
+                print("pid:", cmd)
+            time.sleep(self.__delay_time)
+            if forever:
+                time.sleep(.1)
+        except:
+            print('---set_pid_param error!---')
+            pass
+
+        def clear_auto_report_data(self):
+            self.__battery_voltage = 0
+            self.__vx, self.__vy, self.__vz = 0, 0, 0
+            self.__ax, self.__ay, self.__az = 0, 0, 0
+            self.__gx, self.__gy, self.__gz = 0, 0, 0
+            self.__mx, self.__my, self.__mz = 0, 0, 0
+            self.__yaw, self.__roll, self.__pitch = 0, 0, 0
+
+         def get_motion_pid(self):
+        self.__kp1 = 0
+        self.__ki1 = 0
+        self.__kd1 = 0
+        self.__pid_index = 0
+        self.__request_data(self.FUNC_SET_MOTOR_PID, int(1))
+        for i in range(20):
+            if self.__pid_index > 0:
+                kp = float(self.__kp1 / 1000.0)
+                ki = float(self.__ki1 / 1000.0)
+                kd = float(self.__kd1 / 1000.0)
+                if self.__debug:
+                    print("get_motion_pid: {0}, {1}, {2}".format(self.__pid_index, [kp, ki, kd], i))
+                return [kp, ki, kd]
+            time.sleep(.001)
+        return [-1, -1, -1]
+
+
+
+
+if __name__ == '__main__':
+    com = '/dev/ttyACM0'
+    bot = JDamr(com)
+    time.sleep(1)
+    bot.receive_thread()
+   
+    while True:
+       '''
+       Step2 
+       '''
+       bot.set_motor(100, 100, 100, 100)
+       time.sleep(2)
+       bot.set_motor(0, 0, 0, 0)
+       time.sleep(2)
+
+
+

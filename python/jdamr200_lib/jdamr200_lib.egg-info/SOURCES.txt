@@ -1,0 +1,8 @@
+README.md
+setup.py
+jdamr200_lib/__init__.py
+jdamr200_lib/jdamr200_lib.py
+jdamr200_lib.egg-info/PKG-INFO
+jdamr200_lib.egg-info/SOURCES.txt
+jdamr200_lib.egg-info/dependency_links.txt
+jdamr200_lib.egg-info/top_level.txt
