@@ -26,6 +26,7 @@ import serial
 import threading 
 import struct
 import time 
+import threading 
 
 class Jdamr200(object):
     def __init__(self, com="/dev/ttyACM0"):
@@ -44,6 +45,16 @@ class Jdamr200(object):
         self.rf_encoder = 0
         self.lr_encoder = 0
         self.rr_encoder = 0
+
+        self.GO_FORWARD = 1
+        self.GO_BACKWARD = 2
+        self.TURN_LEFT = 3
+        self.TURN_RIGHT = 4
+        self.STOP = 5
+
+        self.MOVE_RUN_MODE = 0x51
+        self.MOVE_WHELL_MODE = 0x52
+        self.MOVE_RUN_DIFF = 0x53
 
     def readSpeed(self):
         buf_header = bytearray(1)
@@ -117,13 +128,72 @@ class Jdamr200(object):
         except:
             print("serial read error")
             return
-       
+    '''
+    jdARM200 has 2 speed command protocols. 
+    1. run mode: You can control AMR as followungs:
+       go forward  1 
+       go backward   2
+       turn left   3
+       turn right  4
+       stop   5
+    2. wheel mode: You can control each wheel respectively 
+    3. Differential mode 
+    ToDo: 2, 3 control mode 
+    '''
+    def move_run_mode(self ,run_mode, speed):
+        if run_mode == 1:
+            buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.GO_FORWARD, speed])
+        elif run_mode == 2:
+            buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.GO_BACKWARD, speed])
+        elif run_mode == 3:
+            buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.TURN_LEFT, speed])
+        elif run_mode == 4:
+            buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.TURN_RIGHT, speed])
+        elif run_mode == 5:
+            buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.STOP, speed])
+        else:
+            buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.STOP, speed])
+        # send packet to serila port 
+        print(buf)
+        self.ser.write(buf)
+
+    def receive_thread(self):
+        try:
+            taks_name = "serial_thread"
+            rx_task = threading.Thread(target=self.receive_data, name=taks_name)
+            rx_task.setDaemon(True)
+            rx_task.start()
+            print("Start serial receive thread ")
+            time.sleep(.05)
+        except:
+            pass
+
+    def receive_data(self):     
+        self.ser.flushInput()
+        while True:
+            self.readSpeed()
+            time.sleep(0.05)
 
 if __name__ == '__main__':
     com = '/dev/ttyACM0'
     bot = Jdamr200(com)
+    bot.receive_thread()
     time.sleep(1)
    
     while True:
-       time.sleep(0.05)
-       bot.readSpeed()
+        '''
+        To debug sensor reading 
+        '''
+        #time.sleep(0.05)
+        #bot.readSpeed()
+        '''
+        To debug simple motor control 
+        '''
+        bot.move_run_mode(bot.GO_FORWARD, 50)
+        time.sleep(2)
+        bot.move_run_mode(bot.GO_FORWARD, 200)
+        time.sleep(2)
+        bot.move_run_mode(bot.GO_BACKWARD, 50)
+        time.sleep(2)
+        bot.move_run_mode(bot.GO_BACKWARD, 200)
+        time.sleep(2)

@@ -147,7 +147,7 @@ void loop(){
       - wheel mode 
       - differential mode 
     - run mode: controlling motor go/back/left turn/right turn
-    (0xf5, 0xf5, 0x51, dirction, speed)
+    (0xf5, 0xf5, 0x51, direction, speed)
     - ToDo: 2, 3 control mode  
     */  
     
@@ -164,8 +164,16 @@ void loop(){
                         go_backward(speed);         // go backward 
                     }
                 }else if(cmd_buf[2] == 0x52){
+                    int speed = (int)cmd_buf[4];
+                    int angle = (int)cmd_buf[3];
+                    //Serial2.print(angle);
+                    //Serial2.println(speed);
+                    diff_drive(angle, speed);
 
                 }else if(cmd_buf[2] == 0x53){
+                    int speed = (int)cmd_buf[4];
+                    int motor_no = (int)cmd_buf[3];
+                    wheel_drive(motor_no, speed);
 
                 }
             }
@@ -197,6 +205,58 @@ void loop(){
 
     
 
+}
+
+void diff_drive(int angle, int speed){
+    int angle_norm = map(angle, 30, 150, -5, 5);
+    //Serial2.println(angle_norm);
+    float angle_norm_f = (float)angle_norm/10;
+    //Serial2.println(angle_norm_f);
+    float leftSpeed = speed-(speed*(angle_norm_f));
+    float rightSpeed = speed +(speed*(angle_norm_f));
+    //Serial2.print(leftSpeed);
+    //Serial2.print(' ');
+    //Serial2.println(rightSpeed);
+    motorLF->speed(leftSpeed); 
+    motorLR->speed(leftSpeed); 
+    motorRF->speed(rightSpeed);
+    motorRR->speed(rightSpeed);
+}
+
+void wheel_drive(int wheel_no, int speed){
+    switch(wheel_no){
+        case 1:
+            //Serial2.println("motor 1");
+            motorLF->speed(speed); 
+            motorRF->hardStop();
+            motorLR->hardStop(); 
+            motorRR->hardStop();
+            break;
+        case 2:
+            //Serial2.println("motor 2");
+            motorLF->hardStop();
+            motorRF->speed(speed); 
+            motorLR->hardStop(); 
+            motorRR->hardStop();
+            break;
+        case 3:
+            //Serial2.println("motor 3");
+            motorLF->hardStop();
+            motorRF->hardStop();
+            motorLR->speed(speed);
+            motorRR->hardStop();
+            break;
+        case 4:
+            //Serial2.println("motor 4");
+            motorLF->hardStop();
+            motorRF->hardStop();
+            motorLR->hardStop(); 
+            motorRR->speed(speed);
+            break;
+        default:
+            stop();
+            break;
+    }
 }
 
 void send_sensors(){

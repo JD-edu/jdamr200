@@ -53,8 +53,8 @@ class Jdamr200(object):
         self.STOP = 5
 
         self.MOVE_RUN_MODE = 0x51
-        self.MOVE_WHELL_MODE = 0x52
-        self.MOVE_RUN_DIFF = 0x53
+        self.MOVE_RUN_DIFF = 0x52
+        self.MOVE_WHEEL_MODE = 0x53
 
     def readSpeed(self):
         buf_header = bytearray(1)
@@ -129,7 +129,7 @@ class Jdamr200(object):
             print("serial read error")
             return
     '''
-    jdARM200 has 2 speed command protocols. 
+    jdARM200 has 3 speed command protocols. 
     1. run mode: You can control AMR as followungs:
        go forward  1 
        go backward   2
@@ -138,7 +138,6 @@ class Jdamr200(object):
        stop   5
     2. wheel mode: You can control each wheel respectively 
     3. Differential mode 
-    ToDo: 2, 3 control mode 
     '''
     def move_run_mode(self ,run_mode, speed):
         if run_mode == 1:
@@ -156,6 +155,34 @@ class Jdamr200(object):
         # send packet to serila port 
         print(buf)
         self.ser.write(buf)
+
+    '''
+    In differential drive mode, we provide steering angle and speed.
+    comamnd code is 0x52, angle is between 150 an 30.
+    (0xf5, 0xf5, 0x52, angle, speed)
+    '''
+    def move_diff_mode(self, angle, speed):
+        if angle > 150:
+            angle = 150 
+        elif angle < 30:
+            angle = 30
+        buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_DIFF, angle, speed])
+        # send packet to serila port 
+        print(buf)
+        self.ser.write(buf)
+    
+    '''
+    In wheel mode, we can control each 4 wheel respectively. 
+    command code is 0x53
+    (0xf5, 0xf5, 0x53, wheel number, speed)
+    lf: 1 lr: 2 rf: 3 rr: 4 
+    '''
+    def move_wheel_mode(self, wheel_no, speed):
+        buf = bytearray([0xf5, 0xf5,  self.MOVE_WHEEL_MODE, wheel_no, speed])
+        # send packet to serila port 
+        print(buf)
+        self.ser.write(buf)
+
 
     def receive_thread(self):
         try:
@@ -178,7 +205,7 @@ if __name__ == '__main__':
     com = '/dev/ttyACM0'
     bot = Jdamr200(com)
     bot.receive_thread()
-    time.sleep(1)
+    time.sleep(2)
    
     while True:
         '''
@@ -187,13 +214,43 @@ if __name__ == '__main__':
         #time.sleep(0.05)
         #bot.readSpeed()
         '''
-        To debug simple motor control 
+        To debug simple motor control run_mode 
         '''
-        bot.move_run_mode(bot.GO_FORWARD, 50)
-        time.sleep(2)
-        bot.move_run_mode(bot.GO_FORWARD, 200)
-        time.sleep(2)
-        bot.move_run_mode(bot.GO_BACKWARD, 50)
-        time.sleep(2)
-        bot.move_run_mode(bot.GO_BACKWARD, 200)
-        time.sleep(2)
+        #bot.move_run_mode(bot.GO_FORWARD, 50)
+        #time.sleep(2)
+        #bot.move_run_mode(bot.GO_FORWARD, 200)
+        #time.sleep(2)
+        #bot.move_run_mode(bot.GO_BACKWARD, 50)
+        #time.sleep(2)
+        #bot.move_run_mode(bot.GO_BACKWARD, 200)
+        #time.sleep(2)
+        '''
+        To debug simple differential mode test 
+        '''
+        #bot.move_diff_mode(30, 100)
+        #time.sleep(2)
+        #bot.move_diff_mode(150, 100)
+        #time.sleep(2)
+
+        '''
+        To debug simple wheel mode test 
+        '''
+        bot.move_wheel_mode(1, 100)
+        time.sleep(1)
+        bot.move_wheel_mode(1, 0)
+        time.sleep(1)
+        bot.move_wheel_mode(2, 100)
+        time.sleep(1)
+        bot.move_wheel_mode(2, 0)
+        time.sleep(1)
+        bot.move_wheel_mode(3, 100)
+        time.sleep(1)
+        bot.move_wheel_mode(3, 0)
+        time.sleep(1)
+        bot.move_wheel_mode(4, 100)
+        time.sleep(1)
+        bot.move_wheel_mode(4, 0)
+        time.sleep(1)
+
+
+        
