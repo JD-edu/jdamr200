@@ -27,11 +27,14 @@ import threading
 import struct
 import time 
 import threading 
+import math
 
 class Jdamr200(object):
     def __init__(self, com="/dev/ttyACM0"):
         self.ser = serial.Serial(com, 115200)
+        # packet header 
         self.head = 0xf5
+        # IMU, encoder low level data 
         self.ax = 0.0 
         self.ay = 0.0
         self.az = 0.0 
@@ -46,6 +49,18 @@ class Jdamr200(object):
         self.lr_encoder = 0
         self.rr_encoder = 0
 
+        # data for odmetry claculation 
+        self.wheel_radius = 0.05  # wheel diameter 5cm 
+        self.wheel_base = 0.30    # distance between wheels (m)
+        self.encoder_resolution = 360  # encoder resolution (number of pulse)
+        self.previous_left_encoder = 0
+        self.previous_right_encoder = 0
+        
+        # 초기 포지션 (x, y, theta)
+        self.x = 0.0
+        self.y = 0.0
+        self.theta = 0.0
+
         self.GO_FORWARD = 1
         self.GO_BACKWARD = 2
         self.TURN_LEFT = 3
@@ -53,8 +68,8 @@ class Jdamr200(object):
         self.STOP = 5
 
         self.MOVE_RUN_MODE = 0x51
-        self.MOVE_WHELL_MODE = 0x52
-        self.MOVE_RUN_DIFF = 0x53
+        self.MOVE_RUN_DIFF = 0x52
+        self.MOVE_WHEEL_MODE = 0x53
 
     def readSpeed(self):
         buf_header = bytearray(1)
@@ -129,7 +144,7 @@ class Jdamr200(object):
             print("serial read error")
             return
     '''
-    jdARM200 has 2 speed command protocols. 
+    jdARM200 has 3 speed command protocols. 
     1. run mode: You can control AMR as followungs:
        go forward  1 
        go backward   2
@@ -138,7 +153,6 @@ class Jdamr200(object):
        stop   5
     2. wheel mode: You can control each wheel respectively 
     3. Differential mode 
-    ToDo: 2, 3 control mode 
     '''
     def move_run_mode(self ,run_mode, speed):
         if run_mode == 1:
@@ -152,10 +166,38 @@ class Jdamr200(object):
         elif run_mode == 5:
             buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.STOP, speed])
         else:
-            buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.STOP, speed])
+            buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_MODE, self.STOP, 0])
         # send packet to serila port 
         print(buf)
         self.ser.write(buf)
+
+    '''
+    In differential drive mode, we provide steering angle and speed.
+    comamnd code is 0x52, angle is between 150 an 30.
+    (0xf5, 0xf5, 0x52, angle, speed)
+    '''
+    def move_diff_mode(self, angle, speed):
+        if angle > 150:
+            angle = 150 
+        elif angle < 30:
+            angle = 30
+        buf = bytearray([0xf5, 0xf5, self.MOVE_RUN_DIFF, angle, speed])
+        # send packet to serila port 
+        print(buf)
+        self.ser.write(buf)
+    
+    '''
+    In wheel mode, we can control each 4 wheel respectively. 
+    command code is 0x53
+    (0xf5, 0xf5, 0x53, wheel number, speed)
+    lf: 1 lr: 2 rf: 3 rr: 4 
+    '''
+    def move_wheel_mode(self, wheel_no, speed):
+        buf = bytearray([0xf5, 0xf5,  self.MOVE_WHEEL_MODE, wheel_no, speed])
+        # send packet to serila port 
+        print(buf)
+        self.ser.write(buf)
+
 
     def receive_thread(self):
         try:
@@ -174,11 +216,40 @@ class Jdamr200(object):
             self.readSpeed()
             time.sleep(0.05)
 
+    def update_odometry(self):
+        self.lf_encoder += 1
+        self.rf_encoder += 1
+        # update encoder value 
+        current_left_encoder = self.lf_encoder  
+        current_right_encoder = self.rf_encoder 
+        
+        # get encoder tick delta
+        delta_left = current_left_encoder - self.previous_left_encoder
+        delta_right = current_right_encoder - self.previous_right_encoder
+        
+        # calculate turn angle from encoder tick 
+        left_distance = (2 * math.pi * self.wheel_radius) * (delta_left / self.encoder_resolution)
+        right_distance = (2 * math.pi * self.wheel_radius) * (delta_right / self.encoder_resolution)
+        
+        # calculate average moving distance delta and angular speed 
+        delta_distance = (left_distance + right_distance) / 2.0
+        delta_theta = (right_distance - left_distance) / self.wheel_base
+        
+        # update position 
+        self.x += delta_distance * math.cos(self.theta)
+        self.y += delta_distance * math.sin(self.theta)
+        self.theta += delta_theta
+        
+        # 이전 엔코더 값 갱신
+        self.previous_left_encoder = current_left_encoder
+        self.previous_right_encoder = current_right_encoder
+        return self.x, self.y, self.theta
+
 if __name__ == '__main__':
     com = '/dev/ttyACM0'
     bot = Jdamr200(com)
     bot.receive_thread()
-    time.sleep(1)
+    time.sleep(2)
    
     while True:
         '''
@@ -187,13 +258,45 @@ if __name__ == '__main__':
         #time.sleep(0.05)
         #bot.readSpeed()
         '''
-        To debug simple motor control 
+        To debug simple motor control run_mode 
         '''
-        bot.move_run_mode(bot.GO_FORWARD, 50)
+        bot.move_run_mode(bot.GO_FORWARD, 100)
         time.sleep(2)
-        bot.move_run_mode(bot.GO_FORWARD, 200)
+        bot.move_run_mode(bot.GO_BACKWARD, 100)
         time.sleep(2)
-        bot.move_run_mode(bot.GO_BACKWARD, 50)
+        bot.move_run_mode(bot.TURN_LEFT, 100)
         time.sleep(2)
-        bot.move_run_mode(bot.GO_BACKWARD, 200)
+        bot.move_run_mode(bot.TURN_RIGHT, 100)
         time.sleep(2)
+        bot.move_run_mode(bot.STOP, 0)
+        time.sleep(2)
+        '''
+        To debug simple differential mode test 
+        '''
+        #bot.move_diff_mode(30, 100)
+        #time.sleep(2)
+        #bot.move_diff_mode(150, 100)
+        #time.sleep(2)
+
+        '''
+        To debug simple wheel mode test 
+        '''
+        #bot.move_wheel_mode(1, 100)
+        #time.sleep(1)
+        #bot.move_wheel_mode(1, 0)
+        #time.sleep(1)
+        #bot.move_wheel_mode(2, 100)
+        #time.sleep(1)
+        #bot.move_wheel_mode(2, 0)
+        #time.sleep(1)
+        #bot.move_wheel_mode(3, 100)
+        #time.sleep(1)
+        #bot.move_wheel_mode(3, 0)
+        #time.sleep(1)
+        #bot.move_wheel_mode(4, 100)
+        #time.sleep(1)
+        #bot.move_wheel_mode(4, 0)
+        #time.sleep(1)
+
+
+        

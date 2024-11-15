@@ -44,6 +44,12 @@ SPDMotor *motorRF = new SPDMotor(19, 38, false, 8, 37, 36); // <- NOTE: Motor Di
 SPDMotor *motorLR = new SPDMotor( 3, 49, true,  6, 42, 43); // <- Encoder reversed to make +position measurement be forward.
 SPDMotor *motorRR = new SPDMotor( 2, A1, false, 5, A4, A5); // <- NOTE: Motor Dir pins reversed for opposite operation
 
+#define GO_FORWARD      1
+#define GO_BACKWARD     2 
+#define TURN_LEFT       3
+#define TURN_RIGHT      4
+#define STOP            5
+
 void go_forward(int speed){
     motorLF->speed(speed); 
     motorLR->speed(speed); 
@@ -70,20 +76,6 @@ void turn_left(int speed){
     motorLR->speed(-speed); 
     motorRF->speed(speed);
     motorRR->speed(speed);
-}
-
-void go_side_right(int speed){
-    motorLF->speed(speed); 
-    motorLR->speed(-speed); 
-    motorRF->speed(-speed);
-    motorRR->speed(speed);
-}
-
-void go_side_left(int speed){
-    motorLF->speed(-speed); 
-    motorLR->speed(speed); 
-    motorRF->speed(speed);
-    motorRR->speed(-speed);
 }
 
 void stop(){
@@ -158,10 +150,16 @@ void loop(){
             if(cmd_buf[1] == 0xf5){         // header 2 
                 if(cmd_buf[2] == 0x51){         // run mode? 
                     int speed = (int)cmd_buf[4];    // get speed 
-                    if(cmd_buf[3] == 1){
+                    if(cmd_buf[3] == GO_FORWARD){
                         go_forward(speed);          // go forward 
-                    }else if(cmd_buf[3] == 2){
+                    }else if(cmd_buf[3] == GO_BACKWARD){
                         go_backward(speed);         // go backward 
+                    }else if(cmd_buf[3] == TURN_LEFT){
+                        turn_left(speed);           // turn left 
+                    }else if(cmd_buf[3] == TURN_RIGHT){
+                        turn_right(speed);           // turn right 
+                    }else if(cmd_buf[3] == STOP){
+                        stop();           // stop 
                     }
                 }else if(cmd_buf[2] == 0x52){
                     int speed = (int)cmd_buf[4];
