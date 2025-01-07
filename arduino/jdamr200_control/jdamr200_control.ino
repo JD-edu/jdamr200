@@ -50,6 +50,47 @@ SPDMotor *motorRR = new SPDMotor( 2, A1, false, 5, A4, A5); // <- NOTE: Motor Di
 #define TURN_RIGHT      4
 #define STOP            5
 
+// for visual debugging using 3 color LED. Please connect RGB -? A6/A7A8
+void imu_error(){
+  analogWrite(A6, 255);
+  analogWrite(A7, 0);
+  analogWrite(A8, 0);
+  delay(100);
+  analogWrite(A6, 0);
+  analogWrite(A7, 0);
+  analogWrite(A8, 0);
+  delay(100);
+
+}
+
+void reboot_alarm(){
+  for(int i=0;i<10;i++){
+    analogWrite(A6, 0);
+    analogWrite(A7, 255);
+    analogWrite(A8, 0);
+    delay(100);
+    analogWrite(A6, 0);
+    analogWrite(A7, 0);
+    analogWrite(A8, 0);
+    delay(100);
+  }
+}
+
+void arduino_working(){
+  static byte toggle = 0;
+  if(toggle == 1){
+    analogWrite(A6, 0);
+    analogWrite(A7, 0);
+    analogWrite(A8, 255);
+    toggle = 0;
+  }else{
+    analogWrite(A6, 0);
+    analogWrite(A7, 0);
+    analogWrite(A8, 0);
+    toggle = 1;
+  }
+}
+
 void go_forward(int speed){
     motorLF->speed(speed); 
     motorLR->speed(speed); 
@@ -106,10 +147,11 @@ void setup(){
     // MPu9250 init 
     if (!mpu.setup(0x68)) {  // change to your own address
         while (1) {
-            Serial.println("MPU connection failed. Please check your connection with `connection_check` example.");
-            delay(5000);
+            //Serial.println("MPU connection failed. Please check your connection with `connection_check` example.");
+            imu_error();
         }
     }
+     reboot_alarm();
 }
 
 void loop(){
@@ -184,7 +226,8 @@ void loop(){
         // We send packets every 50ms, If communication not work, use timer interrpt 
         if (millis() > prev_ms + 50) {
             // send sensor data as binary to ROS2 using serial 
-            send_sensors();
+            arduino_working();
+           send_sensors();
             // send sensor data for debugging using serial2
             //print_gyro();
             //print_mag();
