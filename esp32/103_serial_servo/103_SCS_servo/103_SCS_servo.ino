@@ -1,5 +1,7 @@
 #include <SCServo.h>
-
+// install following library 
+// https://github.com/workloads/scservo
+// In ARduino IDE library manager SCServo by FT&WS 
 SMS_STS st;
 
 // the uart used to control servos.
