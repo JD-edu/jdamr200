@@ -81,13 +81,13 @@ void QMI8658::read_sensor_data(float acc[3], float gyro[3])
 
 #if defined(QMI8658_UINT_MG_DPS)
 	// mg
-  Serial.println("mg");
+  //Serial.println("mg");
 	acc[0] = (float)(raw_acc_xyz[0]*1000.0f)/g_imu.ssvt_a - TempAcc.X_Off_Err;
 	acc[1] = (float)(raw_acc_xyz[1]*1000.0f)/g_imu.ssvt_a - TempAcc.Y_Off_Err;
 	acc[2] = (float)(raw_acc_xyz[2]*1000.0f)/g_imu.ssvt_a - TempAcc.Z_Off_Err;
 #else
 	// m/s2
-  Serial.println("m/s2");
+  //Serial.println("m/s2");
 	acc[0] = (float)(raw_acc_xyz[0]*ONE_G)/g_imu.ssvt_a;
 	acc[1] = (float)(raw_acc_xyz[1]*ONE_G)/g_imu.ssvt_a;
 	acc[2] = (float)(raw_acc_xyz[2]*ONE_G)/g_imu.ssvt_a;
@@ -95,13 +95,13 @@ void QMI8658::read_sensor_data(float acc[3], float gyro[3])
 
 #if defined(QMI8658_UINT_MG_DPS)
 	// dps
-  Serial.println("dps");
+  //Serial.println("dps");
 	gyro[0] = (float)(raw_gyro_xyz[0]*1.0f)/g_imu.ssvt_g - TempGyr.X_Off_Err;
 	gyro[1] = (float)(raw_gyro_xyz[1]*1.0f)/g_imu.ssvt_g - TempGyr.Y_Off_Err;
 	gyro[2] = (float)(raw_gyro_xyz[2]*1.0f)/g_imu.ssvt_g - TempGyr.Z_Off_Err;
 #else
 	// rad/s
-  Serial.println("rad/s");
+  //Serial.println("rad/s");
 	gyro[0] = (float)(raw_gyro_xyz[0]*M_PI)/(g_imu.ssvt_g*180);		// *pi/180
 	gyro[1] = (float)(raw_gyro_xyz[1]*M_PI)/(g_imu.ssvt_g*180);
 	gyro[2] = (float)(raw_gyro_xyz[2]*M_PI)/(g_imu.ssvt_g*180);
@@ -124,7 +124,7 @@ void QMI8658::read_acc(float acc[3])
 	acc[2] = (float)(raw_acc_xyz[2]*1000.0f)/g_imu.ssvt_a;
 #else
 	// m/s2
-  Serial.println("m/s2");
+  //Serial.println("m/s2");
 	acc[0] = (float)(raw_acc_xyz[0]*ONE_G)/g_imu.ssvt_a;
 	acc[1] = (float)(raw_acc_xyz[1]*ONE_G)/g_imu.ssvt_a;
 	acc[2] = (float)(raw_acc_xyz[2]*ONE_G)/g_imu.ssvt_a;
@@ -147,7 +147,7 @@ void QMI8658::read_gyro(float gyro[3])
 	gyro[2] = (float)(raw_gyro_xyz[2]*1.0f)/g_imu.ssvt_g;
 #else
 	// rad/s
-  Serial.println("rad/s");
+  //Serial.println("rad/s");
 	gyro[0] = (float)(raw_gyro_xyz[0]*M_PI)/(g_imu.ssvt_g*180);		// *pi/180
 	gyro[1] = (float)(raw_gyro_xyz[1]*M_PI)/(g_imu.ssvt_g*180);
 	gyro[2] = (float)(raw_gyro_xyz[2]*M_PI)/(g_imu.ssvt_g*180);
@@ -246,7 +246,7 @@ void QMI8658::read_xyz(float acc[3], float gyro[3])
 		gyro[0] = g_imu.imu[3];
 		gyro[1] = g_imu.imu[4];
 		gyro[2] = g_imu.imu[5];
-		Serial.print("data ready fail!\n");
+		//Serial.print("data ready fail!\n");
 	}
 }
 
@@ -425,7 +425,7 @@ unsigned char QMI8658::get_id(void)
 		while((qmi8658_chip_id != 0x05)&&(retry++ < 5))
 		{
 			qmi8658_chip_id = read_reg(Qmi8658Register_WhoAmI);
-			Serial.printf("Qmi8658Register_WhoAmI = 0x%x\n", qmi8658_chip_id);
+			//Serial.printf("Qmi8658Register_WhoAmI = 0x%x\n", qmi8658_chip_id);
 		}
 		if(qmi8658_chip_id == 0x05)
 		{

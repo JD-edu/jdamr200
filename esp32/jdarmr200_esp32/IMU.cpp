@@ -48,7 +48,7 @@ void imuInit()
     // Serial.println("Start figure-8 calibration after 1 seconds.");
     // delay(1000);
     // calibrate(10000, &offset_x, &offset_y, &offset_z);
-    calibrateMagn();
+    //calibrateMagn();
     q0 = 1.0f;  
     q1 = 0.0f;
     q2 = 0.0f;
