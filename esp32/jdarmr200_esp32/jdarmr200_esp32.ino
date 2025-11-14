@@ -244,7 +244,7 @@ void loop() {
     }
   }
   static uint32_t prev_ms = millis();
-  if (millis() > prev_ms + 100) {
+  if (millis() > prev_ms + 50) {
       send_sensors();
       //print_sensor();
       prev_ms = millis();
@@ -323,18 +323,18 @@ void go_forward(int speed){
 }
 
 void go_backward(int speed){
-  motorA.control(speed);
-  motorB.control(speed);
+  motorA.control(-speed);
+  motorB.control(-speed);
 }
 
 void turn_right(int speed){
-  motorA.control(speed);
+  motorA.control(-speed);
   motorB.control(speed);
 }
 
 void turn_left(int speed){
   motorA.control(speed);
-  motorB.control(speed);
+  motorB.control(-speed);
 }
 
 void stop(){

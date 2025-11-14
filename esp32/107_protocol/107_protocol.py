@@ -6,7 +6,7 @@ import random
 
 # --- 설정 (환경에 맞게 변경하세요) ---
 # Arduino가 Serial.begin(115200)을 사용하므로, 이 포트와 통신합니다.
-PORT = 'COM15'   # Windows 사용자: COMx, Linux/Mac 사용자: /dev/ttyUSBx 또는 /dev/ttyACMx
+PORT = '/dev/ttyUSB0'   # Windows 사용자: COMx, Linux/Mac 사용자: /dev/ttyUSBx 또는 /dev/ttyACMx
 BAUDRATE = 115200
 SENSOR_PACKET_LENGTH = 29
 COMMAND_PACKET_LENGTH = 5
